@@ -1,0 +1,1979 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>It’s Raining Love</title>
+  <style>
+    :root{
+      --choiceH: 120px;
+      --bg:#05070b;
+      --fg:#e9edf5;
+      --muted:rgba(233,237,245,.72);
+      --soft:rgba(233,237,245,.18);
+      --soft2:rgba(233,237,245,.10);
+      --accent:rgba(233,237,245,.92);
+      --danger:rgba(255,255,255,.9);
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      overflow:hidden;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #app{position:fixed; inset:0;}
+    canvas{position:absolute; inset:0; width:100%; height:100%;}
+
+    /* Overlay UI */
+    .hud{
+      position:absolute; inset:0;
+      pointer-events:none;
+      display:flex;
+      flex-direction:column;
+    }
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:16px 18px;
+      gap:12px;
+      pointer-events:none;
+    }
+    .badge{
+      pointer-events:auto;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+      border:1px solid rgba(255,255,255,.10);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    .badge .title{font-weight:600; letter-spacing:.2px;}
+    .badge .sub{font-size:12px; color:var(--muted)}
+    .btn{
+      pointer-events:auto;
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:var(--fg);
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:13px;
+      transition: transform .12s ease, background .12s ease;
+    }
+    .btn:hover{transform: translateY(-1px); background:rgba(255,255,255,.11)}
+    .btn:active{transform: translateY(0px); background:rgba(255,255,255,.09)}
+
+    /* Verses */
+    .verseWrap{
+      pointer-events:none;
+      position:absolute;
+      top:74px;
+      left:50%;
+      transform: translateX(-50%);
+      width:min(860px, calc(100vw - 36px));
+    }
+    .verse{
+      pointer-events:none;
+      margin:0 0 10px 0;
+      padding:14px 16px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.10);
+      background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.05));
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 40px rgba(0,0,0,.38);
+      line-height:1.55;
+      letter-spacing:.1px;
+      font-size:15px;
+      opacity:0;
+      transform: translateY(8px);
+      transition: opacity .28s ease, transform .28s ease;
+    }
+    .verse.show{opacity:1; transform: translateY(0px)}
+    .verse.faded{opacity:.55}
+
+    /* Dialogue */
+    .dialogueLayer{
+      pointer-events:none;
+      position:absolute;
+      left:0; right:0;
+      bottom:calc(18px + var(--choiceH) + 18px);
+      display:flex;
+      justify-content:center;
+      padding:0 18px;
+    }
+    .bubble{
+      pointer-events:none;
+      width:min(720px, calc(100vw - 36px));
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.12);
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 40px rgba(0,0,0,.42);
+      padding:14px 16px;
+      line-height:1.55;
+      opacity:0;
+      transform: translateY(10px);
+      transition: opacity .22s ease, transform .22s ease;
+    }
+    .bubble.show{opacity:1; transform: translateY(0)}
+    .speaker{font-weight:650; letter-spacing:.2px; margin-bottom:4px}
+    .line{color:var(--fg)}
+
+    /* Choices */
+    .choiceLayer{
+      pointer-events:auto;
+      position:absolute;
+      left:50%;
+      transform: translateX(-50%);
+      bottom:18px;
+      width:min(760px, calc(100vw - 36px));
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .choiceBtn{
+      cursor:pointer;
+      width:100%;
+      text-align:left;
+      padding:14px 16px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
+      color:var(--fg);
+      font-size:15px;
+      line-height:1.35;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+    .choiceBtn:hover{transform: translateY(-1px); background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.18)}
+    .choiceBtn:active{transform: translateY(0px); background:rgba(255,255,255,.08)}
+
+    /* Start modal */
+    .modal{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:22px;
+      background: radial-gradient(1200px 800px at 50% 35%, rgba(255,255,255,.08), rgba(0,0,0,.88));
+      backdrop-filter: blur(8px);
+      pointer-events:auto;
+    }
+    .card{
+      width:min(680px, 100%);
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.05));
+      box-shadow: 0 22px 70px rgba(0,0,0,.55);
+      padding:18px;
+    }
+    .h1{font-size:18px; font-weight:750; letter-spacing:.2px; margin:0 0 6px 0}
+    .p{margin:0; color:var(--muted); line-height:1.6}
+    .row{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap}
+    input{
+      flex:1;
+      min-width:220px;
+      background:rgba(0,0,0,.30);
+      border:1px solid rgba(255,255,255,.14);
+      color:var(--fg);
+      border-radius:14px;
+      padding:12px 12px;
+      outline:none;
+      font-size:15px;
+    }
+    input::placeholder{color:rgba(233,237,245,.45)}
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:var(--muted);
+      font-size:12px;
+    }
+    .foot{
+      margin-top:14px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      color:rgba(233,237,245,.55);
+      font-size:12px;
+    }
+    .kbd{
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.07);
+      padding:3px 7px;
+      border-radius:10px;
+      font-weight:650;
+      color:rgba(233,237,245,.8);
+    }
+
+    /* Small screens */
+    @media (max-width: 520px){
+      .verse{font-size:14px}
+      .choiceBtn{font-size:14px}
+      .topbar{padding:14px 14px}
+      .verseWrap{top:68px}
+      .dialogueLayer{bottom:170px}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <canvas id="bg"></canvas>
+  <canvas id="fg"></canvas>
+
+  <div class="hud" id="hud">
+    <div class="topbar">
+      <div class="badge">
+        <div>
+          <div class="title">It’s Raining Love</div>
+          <div class="sub" id="chapterLabel">Chapter 1 · Air Around Us</div>
+        </div>
+      </div>
+      <button class="btn" id="menuBtn" title="Menu">Menu</button>
+    </div>
+
+    <div class="verseWrap" id="verseWrap"></div>
+
+    <div class="dialogueLayer">
+      <div class="bubble" id="bubble">
+        <div class="speaker" id="speaker"></div>
+        <div class="line" id="line"></div>
+      </div>
+    </div>
+
+    <div class="choiceLayer" id="choices" style="display:none"></div>
+  </div>
+
+  <div class="modal" id="startModal">
+    <div class="card">
+      <div class="h1">Begin</div>
+      <p class="p">A quiet, choice-driven reading experience. One moment per screen. Your name gently shapes tone — without changing the truth of the story.</p>
+      <div class="row">
+        <input id="nameInput" maxlength="24" placeholder="Your name (seed)" />
+        <button class="btn" id="startBtn">Enter the rain</button>
+      </div>
+      <div class="row" id="seedPills" style="margin-top:10px"></div>
+      <div class="foot">
+        <div>Advance: <span class="kbd">Space</span> / click / tap · Choices: click</div>
+        <div>Tip: wear headphones (optional)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="menuModal" style="display:none">
+    <div class="card">
+      <div class="h1">Menu</div>
+      <p class="p" style="margin-bottom:12px">Jump chapters, restart, or keep going.</p>
+      <div class="row" style="gap:10px">
+        <button class="btn" id="resumeBtn">Resume</button>
+        <button class="btn" id="restartBtn">Restart</button>
+        <button class="btn" id="muteBtn">Toggle sound</button>
+      </div>
+      <div style="height:12px"></div>
+      <div style="display:grid; grid-template-columns:1fr; gap:10px">
+                <button class="choiceBtn" data-jump="c1">Chapter 1 · Air Around Us</button>
+        <button class="choiceBtn" data-jump="c2">Chapter 2 · Rain Doesn’t Stop</button>
+        <button class="choiceBtn" data-jump="c3">Chapter 3 · I Opened Doors for You</button>
+        <button class="choiceBtn" data-jump="c4">Chapter 4 · A Stillness in the Storm</button>
+        <button class="choiceBtn" data-jump="c5">Chapter 5 · Voices Inside Me</button>
+        <button class="choiceBtn" data-jump="c6">Chapter 6 · I Crumbled Inside</button>
+        <button class="choiceBtn" data-jump="c7">Chapter 7 · A Moment We Had</button>
+        <button class="choiceBtn" data-jump="c8">Chapter 8 · I Set It on Fire</button>
+        <button class="choiceBtn" data-jump="c9">Chapter 9 · I Drifted into the Fog</button>
+        <button class="choiceBtn" data-jump="c10">Chapter 10 · After a While</button>
+      </div>
+      <div class="foot" style="margin-top:14px">
+        <div id="seedInfo">Seed: —</div>
+        <div>Built as a single file.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Utilities
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+  function hashString(str){
+    // simple deterministic hash (32-bit)
+    let h = 2166136261;
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function traitFromName(name){
+    const n = (name || "").trim();
+    const len = n.length;
+    const trait = len <= 4 ? "Quiet" : (len <= 7 ? "Direct" : "Analytical");
+    const first = (n[0] || "A").toUpperCase();
+    const img = (first >= 'A' && first <= 'H') ? "stairwell echo" : ((first >= 'I' && first <= 'P') ? "bus window rain" : "rooftop wind");
+    return {len, trait, img, first};
+  }
+
+  function readTimeMs(text){
+    const t = (text || "").trim();
+    // Natural hold: ~42ms/char + floor, capped
+    const ms = clamp(1400 + t.length * 42, 1900, 5200);
+    return ms;
+  }
+
+  // ---------- DOM
+  const bg = document.getElementById('bg');
+  const fg = document.getElementById('fg');
+  const verseWrap = document.getElementById('verseWrap');
+  const bubble = document.getElementById('bubble');
+  const speakerEl = document.getElementById('speaker');
+  const lineEl = document.getElementById('line');
+  const choicesEl = document.getElementById('choices');
+  const choiceLayerEl = document.querySelector('.choiceLayer');
+  const rootStyle = document.documentElement.style;
+  const chapterLabel = document.getElementById('chapterLabel');
+
+  const startModal = document.getElementById('startModal');
+  const nameInput = document.getElementById('nameInput');
+  const startBtn = document.getElementById('startBtn');
+  const seedPills = document.getElementById('seedPills');
+
+  const menuBtn = document.getElementById('menuBtn');
+  const menuModal = document.getElementById('menuModal');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const seedInfo = document.getElementById('seedInfo');
+
+  // ---------- Sound (optional, minimal)
+  let audioOn = false;
+  let audioCtx = null;
+  let noiseNode = null;
+  let gainNode = null;
+
+  function startRainSound(){
+    if(audioOn) return;
+    try{
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const bufferSize = 2 * audioCtx.sampleRate;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for(let i=0;i<bufferSize;i++) output[i] = Math.random() * 2 - 1;
+
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 900;
+      filter.Q.value = 0.7;
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.0;
+
+      whiteNoise.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      whiteNoise.start(0);
+
+      noiseNode = {src:whiteNoise, filter, gain:gainNode};
+      audioOn = true;
+      fadeRainTo(0.12, 700);
+    } catch(e){
+      // ignore
+    }
+  }
+
+  function stopRainSound(){
+    if(!audioOn) return;
+    try{
+      fadeRainTo(0.0, 300);
+      setTimeout(() => {
+        if(noiseNode?.src) noiseNode.src.stop();
+        audioCtx?.close();
+      }, 340);
+    } catch(e){/* ignore */}
+    audioOn = false;
+    audioCtx = null;
+    noiseNode = null;
+    gainNode = null;
+  }
+
+  function fadeRainTo(target, ms){
+    if(!gainNode || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    const g = gainNode.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(target, now + ms/1000);
+  }
+
+  // ---------- Canvas setup
+  const bgc = bg.getContext('2d');
+  const fgc = fg.getContext('2d');
+
+  let W=0, H=0, DPR=1;
+  function resize(){
+    DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    W = Math.floor(window.innerWidth);
+    H = Math.floor(window.innerHeight);
+    bg.width = Math.floor(W * DPR);
+    bg.height = Math.floor(H * DPR);
+    fg.width = Math.floor(W * DPR);
+    fg.height = Math.floor(H * DPR);
+    bg.style.width = W + 'px';
+    bg.style.height = H + 'px';
+    fg.style.width = W + 'px';
+    fg.style.height = H + 'px';
+    bgc.setTransform(DPR,0,0,DPR,0,0);
+    fgc.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Rain particles
+  function makeRain(n, speedMin, speedMax, near){
+    const arr=[];
+    for(let i=0;i<n;i++){
+      arr.push({
+        x: Math.random()*W,
+        y: Math.random()*H,
+        l: lerp(10, 26, Math.random()) * (near?1.1:0.85),
+        v: lerp(speedMin, speedMax, Math.random()) * (near?1.0:0.8),
+        w: lerp(0.8, 1.7, Math.random()) * (near?1.1:0.8),
+        a: lerp(0.15, 0.38, Math.random()) * (near?1.0:0.8),
+        s: lerp(0.5, 1.0, Math.random())
+      });
+    }
+    return arr;
+  }
+
+  let rainFar = makeRain(320, 520, 920, false);
+  let rainNear = makeRain(190, 820, 1400, true);
+  let rainAngle = -0.38; // slight wind
+
+  // ---------- Scene / Characters
+  const Characters = {
+    player: {name:"You", x:0.5, y:0.74, side:0, present:true, enter:0, targetX:0.5},
+    mara:   {name:"Mara", x:0.18, y:0.74, side:-1, present:false, enter:0, targetX:0.20},
+    jonah:  {name:"Jonah", x:0.82, y:0.74, side:1, present:false, enter:0, targetX:0.80},
+    nila:   {name:"Nila", x:0.32, y:0.74, side:-1, present:false, enter:0, targetX:0.33},
+  };
+
+  function resetCharacters(){
+    Characters.player.present = true;
+    Characters.player.x = 0.5;
+    Characters.player.targetX = 0.5;
+    Characters.player.enter = 1;
+
+    for(const k of ['mara','jonah','nila']){
+      Characters[k].present = false;
+      Characters[k].enter = 0;
+      Characters[k].x = (k==='jonah') ? 1.15 : -0.15;
+    }
+  }
+
+  function setCharacterPresent(id, present){
+    const c = Characters[id];
+    if(!c) return;
+    c.present = present;
+    c.enter = present ? 0.001 : 1;
+    // start off-screen
+    c.x = present ? (id==='jonah'?1.15:-0.15) : c.x;
+  }
+
+  function tweenEnter(c, dt){
+    if(!c.present) return;
+    c.enter = clamp(c.enter + dt*0.0012, 0, 1);
+    const t = easeOut(c.enter);
+    c.x = lerp(c.x, c.targetX, 0.10 + 0.25*t);
+  }
+
+  // ---------- Story data
+  // Engine supports chapters with screens; each screen is a timed sequence then choices.
+  // Keep last 2 verses visible; dialogue appears near bottom.
+
+  const Chapters = {
+    c1: {
+      id:"c1",
+      label:"Chapter 1 · Air Around Us",
+      screens: [
+        {
+          id:"c1s1",
+          init: ({state}) => {
+            resetCharacters();
+            hideBubble();
+            setChoices(null);
+          },
+          sequence: [
+            {type:"verse", text:"Rain is pouring so hard I can’t see where the street begins or ends."},
+            {type:"verse", text:"Everything beyond a few feet dissolves into motion and blur."},
+            {type:"verse", text:"I know there’s traffic on those streets far from me — always a steady stream from the city afar."},
+            {type:"verse", text:"My shoes are soaked; the phone keeps buzzing."},
+            {type:"verse", text:"Someone says my name."},
+            {type:"verse", text:"I can’t tell who."},
+            {type:"event", fn:() => { setCharacterPresent('mara', true); }},
+            {type:"dialogue", who:"Mara", text:"Hey. Are you with us?"},
+            {type:"event", fn:() => { setCharacterPresent('jonah', true); }},
+            {type:"dialogue", who:"Jonah", text:"You stopped responding. We were worried."},
+            {type:"verse", text:"Above us, something flashes briefly — a pale reflection off metal. Moonlight, maybe."},
+            {type:"choice", options:[
+              {label:"Say: \"I just need air.\"", next:"c1s2", effect:{breath:+1, trust:+1}},
+              {label:"Say nothing. Let the rain answer for you.", next:"c1s3", effect:{breath:+1}},
+              {label:"Force a smile and say: \"I’m fine.\"", next:"c1s2", effect:{run:+1}},
+            ]}
+          ]
+        },
+        {
+          id:"c1s2",
+          init: ({state}) => {
+            hideBubble();
+            setChoices(null);
+          },
+          sequence: [
+            {type:"verse", text:"We stand close enough that our shoulders almost touch, but no one rushes it."},
+            {type:"verse", text:"The rain doesn’t slow. It doesn’t ask permission."},
+            {type:"verse", text:"Water runs down my sleeves. I turn my phone screen down without looking."},
+            {type:"dialogue", who:"Mara", text:"You don’t have to disappear while you’re standing right here."},
+            {type:"verse", text:"Her voice isn’t angry. It’s careful. That somehow hurts more."},
+            {type:"verse", text:"I stare at the ground. My feet are planted, solid, real. For once, I’m not moving."},
+            {type:"dialogue", who:"You", text:({state}) => state.playerLine("I don’t run like I used to.")},
+            {type:"dialogue", who:"Jonah", text:"Then what do you do?"},
+            {type:"dialogue", who:"You", text:"I breathe. And I pass it on. Whatever it is."},
+            {type:"verse", text:"Rain fills the silence between us."},
+            {type:"choice", options:[
+              {label:"Tell them: \"I’m in pain. It’s been a while.\"", next:"c1s4", effect:{trust:+1}},
+              {label:"Change the subject: \"How long has it been raining?\"", next:"c1s4", effect:{run:+1}},
+              {label:"Step away, just a little, into the open.", next:"c1s3", effect:{breath:+1}},
+            ]}
+          ]
+        },
+        {
+          id:"c1s3",
+          init: ({state}) => {
+            hideBubble();
+            setChoices(null);
+            // subtle “open” feeling
+            state.rainIntensityTarget = 1.05;
+            state.cameraOpenTarget = 1.0;
+          },
+          sequence: [
+            {type:"verse", text:"I take a step forward."},
+            {type:"verse", text:"Rain hits my face harder now — no barrier, no shelter."},
+            {type:"verse", text:"My breath catches — then settles. Something loosens in my chest."},
+            {type:"dialogue", who:"Jonah", text:"Don’t go far."},
+            {type:"verse", text:"I don’t turn around, but I nod anyway."},
+            {type:"verse", text:"The city feels distant here, like I’ve stepped out of the frame."},
+            {type:"verse", text:"Above, the clouds thin for a second — just enough for a soft silver glow to slip through."},
+            {type:"verse", text:"It doesn’t last."},
+            {type:"verse", text:"Still, my heart opens to it."},
+            {type:"choice", options:[
+              {label:"Stand still and breathe. Count them.", next:"c1s5", effect:{breath:+2}},
+              {label:"Turn back to them.", next:"c1s4", effect:{trust:+1, breath:+1}},
+              {label:"Keep walking — not away, just forward.", next:"c1s5", effect:{run:+1}},
+            ]}
+          ]
+        },
+        {
+          id:"c1s4",
+          init: ({state}) => {
+            hideBubble();
+            setChoices(null);
+            state.rainIntensityTarget = 0.95;
+            state.cameraOpenTarget = 0.0;
+          },
+          sequence: [
+            {type:"verse", text:"For a moment, the storm eases — not enough to stop, just enough to breathe."},
+            {type:"verse", text:"Above, the metal sign catches a brief silver glare."},
+            {type:"dialogue", who:"Mara", text:"Look at me."},
+            {type:"verse", text:"I do. And she doesn’t flinch."},
+            {type:"dialogue", who:"Jonah", text:"We can stand here. Or we can move. But don’t do it alone."},
+            {type:"choice", options:[
+              {label:"Say: \"Stay with me for a minute.\"", next:"c1s6", effect:{trust:+1}},
+              {label:"Say: \"I need space. Not distance.\"", next:"c1s6", effect:{breath:+1, trust:+1}},
+              {label:"Say: \"I’m fine. Really.\"", next:"c1s6", effect:{run:+1}},
+            ]}
+          ]
+        },
+        {
+          id:"c1s5",
+          init: ({state}) => {
+            hideBubble();
+            setChoices(null);
+            state.rainIntensityTarget = 1.10;
+            state.cameraOpenTarget = 1.0;
+          },
+          sequence: [
+            {type:"verse", text:"The signal ahead blinks through sheets of rain like a tired eye."},
+            {type:"verse", text:"My phone buzzes again. A name I haven’t opened in weeks."},
+            {type:"dialogue", who:"Mara", text:"Don’t answer if it costs you."},
+            {type:"dialogue", who:"Jonah", text:"Don’t ignore it if it costs you more."},
+            {type:"verse", text:"I look up — moonlight flashes off a mirror. Quick, silver, gone."},
+            {type:"choice", options:[
+              {label:"Answer the call.", next:"c1s7", effect:{trust:+1}},
+              {label:"Silence the phone and breathe.", next:"c1s7", effect:{breath:+1}},
+              {label:"Ignore it and move anyway.", next:"c1s7", effect:{run:+1}},
+            ]}
+          ]
+        },
+        {
+          id:"c1s6",
+          init: ({state}) => {
+            hideBubble();
+            setChoices(null);
+            state.rainIntensityTarget = 0.90;
+            state.cameraOpenTarget = 0.0;
+          },
+          sequence: [
+            {type:"verse", text:"We don’t solve anything. We just stay."},
+            {type:"verse", text:"And somehow that’s new."},
+            {type:"dialogue", who:"You", text:({state}) => state.playerLine("I don’t want to disappear.")},
+            {type:"verse", text:"The rain keeps going. The city keeps moving. But right here, it loosens its grip."},
+            {type:"choice", options:[
+              {label:"Continue to Chapter 2.", nextChapter:"c2"},
+              {label:"Open the menu.", next:"__menu"},
+            ]}
+          ]
+        },
+        {
+          id:"c1s7",
+          init: ({state}) => {
+            hideBubble();
+            setChoices(null);
+            state.rainIntensityTarget = 1.02;
+            state.cameraOpenTarget = 0.4;
+          },
+          sequence: [
+            {type:"verse", text:"If I answer, the voice is familiar and brittle. If I don’t, the silence is worse."},
+            {type:"verse", text:"Either way, the message is the same: they want something from me again."},
+            {type:"dialogue", who:"Mara", text:"You don’t owe anyone your old self."},
+            {type:"dialogue", who:"Jonah", text:"You can say no without turning it into a war."},
+            {type:"dialogue", who:"You", text:"I used to break with every change."},
+            {type:"choice", options:[
+              {label:"Text back: \"No. Not like before.\"", next:"c1s6", effect:{trust:+1}},
+              {label:"Text back: \"Okay.\"", next:"c1s6", effect:{run:+1}},
+              {label:"No reply. Put the phone away.", next:"c1s6", effect:{breath:+1}},
+            ]}
+          ]
+        },
+      ]
+    },
+
+    // Chapters 2-10: lightweight placeholders so the one-file experience is complete & navigable.
+    c2:{ id:"c2", label:"Chapter 2 · Rain Doesn’t Stop", screens:[{id:"c2s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null); state.rainIntensityTarget=1.08;}, sequence:[
+      {type:"verse", text:"The rain doesn’t stop. It just changes shape."},
+      {type:"verse", text:"Some storms are weather. Some storms are memory."},
+      {type:"dialogue", who:"Mara", text:"We’re walking. Stay with us."},
+      {type:"dialogue", who:"You", text:({state}) => state.playerLine("I’m here.")},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"},{label:"Return to Chapter 1", nextChapter:"c1"}]}
+    ]}]},
+    c3:{ id:"c3", label:"Chapter 3 · I Opened Doors for You", screens:[{id:"c3s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null);}, sequence:[
+      {type:"verse", text:"I opened doors for you — and forgot to keep one for myself."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"}]}
+    ]}]},
+    c4:{ id:"c4", label:"Chapter 4 · Moonlight on Metal", screens:[{id:"c4s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null);}, sequence:[
+      {type:"verse", text:"Moonlight on metal is honest. It doesn’t flatter."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"}]}
+    ]}]},
+    c5:{ id:"c5", label:"Chapter 5 · Voices Inside Me", screens:[{id:"c5s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null);}, sequence:[
+      {type:"verse", text:"There are voices inside me that sound like me — but meaner."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"}]}
+    ]}]},
+    c6:{ id:"c6", label:"Chapter 6 · I Crumbled Inside", screens:[{id:"c6s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null);}, sequence:[
+      {type:"verse", text:"I didn’t break loudly. I crumbled where nobody could see."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"}]}
+    ]}]},
+    c7:{ id:"c7", label:"Chapter 7 · A Moment We Had", screens:[{id:"c7s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null);}, sequence:[
+      {type:"verse", text:"A moment we had — small enough to miss, heavy enough to remember."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"}]}
+    ]}]},
+    c8:{ id:"c8", label:"Chapter 8 · I Set It on Fire", screens:[{id:"c8s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null);}, sequence:[
+      {type:"verse", text:"I set it on fire — not to punish it, just to stop carrying it."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"}]}
+    ]}]},
+    c9:{ id:"c9", label:"Chapter 9 · I Drifted Into the Fog", screens:[{id:"c9s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null); state.fogTarget=1;}, sequence:[
+      {type:"verse", text:"I drifted into the fog and let the world blur on purpose."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"}]}
+    ]}]},
+    c10:{ id:"c10", label:"Chapter 10 · After a While", screens:[{id:"c10s1", init:({state})=>{resetCharacters(); hideBubble(); setChoices(null);}, sequence:[
+      {type:"verse", text:"After a while, even the rain feels like it belongs to someone else."},
+      {type:"verse", text:"And still — my feet are on the ground."},
+      {type:"choice", options:[{label:"Back to Menu", next:"__menu"},{label:"Restart", next:"__restart"}]}
+    ]}]},
+    c4: {
+      id:"c4",
+      label:"Chapter 4 · A Stillness in the Storm",
+      screens: [
+        {
+          id:"c4s1",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"The laundromat clock is missing two numbers."},
+            {type:"verse", text:"I notice it only because I’m finally looking at something that isn’t my own head."},
+            {type:"verse", text:"Outside, the rain keeps going. Inside, the machines keep turning."},
+            {type:"dialogue", who:"Jonah", text:"You’re allowed to stop bracing."},
+            {type:"dialogue", who:"Mara", text:"Not forever. Just for a minute."},
+            {type:"choices", options: () => ([
+              {label:"Let your shoulders drop.", next:"c4s2", effect:{breath:+1}},
+              {label:"Ask what they mean.", next:"c4s2_ask"},
+              {label:"Look at the phone again.", next:"c4s2_phone", effect:{run:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c4s2",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I let my shoulders drop."},
+            {type:"verse", text:"The pain doesn’t vanish. It just stops being the only thing in the room."},
+            {type:"dialogue", who:"Nila", text:"That’s it. That’s the whole trick sometimes."},
+            {type:"choices", options: () => ([
+              {label:"Stay quiet.", next:"c4s3", effect:{breath:+1}},
+              {label:"Say: “I feel torn.”", next:"c4s3_torn", effect:{trust:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c4s2_ask",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"dialogue", who:"Jonah", text:"I mean you don’t have to earn being here."},
+            {type:"dialogue", who:"Mara", text:"You’re not an invoice."},
+            {type:"dialogue", who:"Nila", text:"You’re not a project."},
+            {type:"choices", options: () => ([
+              {label:"Breathe. Let that land.", next:"c4s3", effect:{breath:+1}},
+              {label:"Look away.", next:"c4s3"}
+            ])}
+          ]
+        },
+        {
+          id:"c4s2_phone",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I look at the phone again. Same name. Same insistence."},
+            {type:"dialogue", who:"Mara", text:"You don’t have to trade your peace for someone’s urgency."},
+            {type:"choices", options: () => ([
+              {label:"Delete the notifications.", next:"c4s3", effect:{breath:+1}},
+              {label:"Put it away.", next:"c4s3", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c4s3",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"There’s a stillness in the storm."},
+            {type:"verse", text:"Light without a form — just a softened feeling that the night isn’t trying to punish me."},
+            {type:"dialogue", who:"Jonah", text:"When you were with them… did you ever feel safe?"},
+            {type:"choices", options: () => ([
+              {label:"“No.”", next:"c4s4_no", effect:{trust:+1}},
+              {label:"“Sometimes. But it cost me.”", next:"c4s4_cost", effect:{trust:+1}},
+              {label:"Shake your head.", next:"c4s4_shake", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c4s3_torn",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I say: I feel torn."},
+            {type:"verse", text:"Even saying it makes it smaller. Less endless."},
+            {type:"dialogue", who:"Mara", text:"Torn is honest."},
+            {type:"choices", options: () => ([{label:"Keep going.", next:"c4s3"}])}
+          ]
+        },
+        {
+          id:"c4s4_no",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"No."},
+            {type:"verse", text:"The word lands heavy and clean."},
+            {type:"dialogue", who:"Jonah", text:"Then you’re not going back to that."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 4.", next:"__restart"}
+            ])}
+          ]
+        },
+        {
+          id:"c4s4_cost",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"Sometimes. But it cost me."},
+            {type:"dialogue", who:"Mara", text:"That’s not safety. That’s a lease."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 4.", next:"__restart"}
+            ])}
+          ]
+        },
+        {
+          id:"c4s4_shake",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I don’t answer. I just shake my head."},
+            {type:"dialogue", who:"Nila", text:"Okay. That’s enough information."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 4.", next:"__restart"}
+            ])}
+          ]
+        }
+      ]
+    },
+
+    c5: {
+      id:"c5",
+      label:"Chapter 5 · Voices Inside Me",
+      screens: [
+        {
+          id:"c5s1",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"Later, when the machines quiet down, the room gets louder."},
+            {type:"verse", text:"Not outside. Inside."},
+            {type:"verse", text:"Voices inside me, lining up like they’ve been waiting for their turn."},
+            {type:"dialogue", who:"Jonah", text:"Tell us what they say."},
+            {type:"dialogue", who:"Mara", text:"Or tell us what they always said."},
+            {type:"choices", options: () => ([
+              {label:"Name one voice out loud.", next:"c5s2_name", effect:{trust:+1}},
+              {label:"Keep it private. Just breathe.", next:"c5s2_private", effect:{breath:+1}},
+              {label:"Deflect with a joke.", next:"c5s2_joke", effect:{run:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c5s2_name",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I pick one voice and give it a name like it’s a person."},
+            {type:"verse", text:"The one that says: If you stop being useful, you won’t be loved."},
+            {type:"dialogue", who:"Mara", text:"That one’s loud. I recognize it."},
+            {type:"dialogue", who:"Nila", text:"That voice didn’t raise you. It trained you."},
+            {type:"choices", options: () => ([
+              {label:"Ask: “How do I turn it down?”", next:"c5s3_down", effect:{breath:+1}},
+              {label:"Say: “It’s not true.”", next:"c5s3_nottrue", effect:{trust:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c5s2_private",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I keep it private."},
+            {type:"verse", text:"I don’t want to hand over the whole map of my mind."},
+            {type:"dialogue", who:"Jonah", text:"Okay. Then do the smallest true thing."},
+            {type:"dialogue", who:"Jonah", text:"Put a hand on your chest. Check if you’re still here."},
+            {type:"choices", options: () => ([
+              {label:"Do it.", next:"c5s3_down", effect:{breath:+1}},
+              {label:"Refuse gently.", next:"c5s3_refuse"}
+            ])}
+          ]
+        },
+        {
+          id:"c5s2_joke",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I make a joke."},
+            {type:"verse", text:"It lands, but it doesn’t lift anything."},
+            {type:"dialogue", who:"Nila", text:"You can be funny later."},
+            {type:"dialogue", who:"Mara", text:"Right now we’re trying to keep you."},
+            {type:"choices", options: () => ([
+              {label:"Stop joking. Try again.", next:"c5s2_name", effect:{trust:+1}},
+              {label:"Stay quiet.", next:"c5s2_private", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c5s3_down",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I press a hand to my chest and breathe until my pulse stops feeling like an alarm."},
+            {type:"verse", text:"The voice doesn’t disappear."},
+            {type:"verse", text:"It just loses the microphone."},
+            {type:"dialogue", who:"Mara", text:"That’s it. You don’t fight it. You outlast it."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 5.", next:"__restart"}
+            ])}
+          ]
+        },
+        {
+          id:"c5s3_nottrue",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I say: It’s not true."},
+            {type:"verse", text:"My voice shakes, but it’s still mine."},
+            {type:"dialogue", who:"Jonah", text:"Good. Say it again tomorrow."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 5.", next:"__restart"}
+            ])}
+          ]
+        },
+        {
+          id:"c5s3_refuse",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I can’t do it yet."},
+            {type:"verse", text:"Even gentle care feels like a demand sometimes."},
+            {type:"dialogue", who:"Jonah", text:"Okay."},
+            {type:"dialogue", who:"Jonah", text:"Then we just sit here until your body believes us."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 5.", next:"__restart"}
+            ])}
+          ]
+        }
+      ]
+    },
+
+    c6: {
+      id:"c6",
+      label:"Chapter 6 · I Crumbled Inside",
+      screens: [
+        {
+          id:"c6s1",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"When I finally speak about it, it comes out wrong."},
+            {type:"verse", text:"Not lies — just fragments."},
+            {type:"verse", text:"I crumble inside while I’m still sitting upright."},
+            {type:"dialogue", who:"Mara", text:"You don’t have to hold it neatly."},
+            {type:"dialogue", who:"Nila", text:"Mess is allowed."},
+            {type:"choices", options: () => ([
+              {label:"Let it out. Say the messy part.", next:"c6s2_messy", effect:{trust:+1}},
+              {label:"Ask for a break.", next:"c6s2_break", effect:{breath:+1}},
+              {label:"Shut down.", next:"c6s2_shutdown", effect:{run:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c6s2_messy",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I say what I never say: I gave them too much."},
+            {type:"verse", text:"I opened doors for them and called it love."},
+            {type:"verse", text:"They walked through and didn’t look back."},
+            {type:"dialogue", who:"Jonah", text:"That’s grief."},
+            {type:"dialogue", who:"Mara", text:"And it’s not your fault."},
+            {type:"choices", options: () => ([
+              {label:"Ask: “Why does it still hurt?”", next:"c6s3_hurt"},
+              {label:"Say: “I’m ashamed.”", next:"c6s3_shame", effect:{trust:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c6s2_break",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I ask for a break."},
+            {type:"verse", text:"The relief is immediate — like I’ve been holding my breath for days."},
+            {type:"dialogue", who:"Mara", text:"Good call."},
+            {type:"dialogue", who:"Nila", text:"We’re not racing the storm."},
+            {type:"choices", options: () => ([
+              {label:"Come back to it.", next:"c6s2_messy", effect:{trust:+1}},
+              {label:"Stay quiet a little longer.", next:"c6s3_hurt", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c6s2_shutdown",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I shut down."},
+            {type:"verse", text:"My face goes calm like a closed door."},
+            {type:"dialogue", who:"Jonah", text:"Hey. Look at me."},
+            {type:"dialogue", who:"Jonah", text:"One breath. Just one."},
+            {type:"choices", options: () => ([
+              {label:"Take the breath.", next:"c6s3_hurt", effect:{breath:+1}},
+              {label:"Shake your head.", next:"c6s3_hurt"}
+            ])}
+          ]
+        },
+        {
+          id:"c6s3_hurt",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"Because it was real."},
+            {type:"verse", text:"Because my heart was open, even when it wasn’t safe."},
+            {type:"dialogue", who:"Mara", text:"Pain is proof you cared. Not proof you were wrong."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 6.", next:"__restart"}
+            ])}
+          ]
+        },
+        {
+          id:"c6s3_shame",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I’m ashamed."},
+            {type:"verse", text:"Of how much I begged. Of how small I made myself."},
+            {type:"dialogue", who:"Nila", text:"Shame hates witnesses. We’re staying."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 6.", next:"__restart"}
+            ])}
+          ]
+        }
+      ]
+    },
+
+    c7: {
+      id:"c7",
+      label:"Chapter 7 · A Moment We Had",
+      screens: [
+        {
+          id:"c7s1",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"The rain eases for a few minutes."},
+            {type:"verse", text:"Not a stop. A pause."},
+            {type:"verse", text:"I remember a moment we had — not the worst one, not the best. Just real."},
+            {type:"dialogue", who:"You", text:"There was a night we laughed. I keep replaying that like it excuses everything."},
+            {type:"dialogue", who:"Jonah", text:"Good moments aren’t permission slips."},
+            {type:"choices", options: () => ([
+              {label:"Hold the memory without bargaining.", next:"c7s2_hold", effect:{breath:+1}},
+              {label:"Admit you miss them.", next:"c7s2_miss", effect:{trust:+1}},
+              {label:"Refuse the memory.", next:"c7s2_refuse", effect:{run:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c7s2_hold",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I let the memory exist without turning it into an argument."},
+            {type:"verse", text:"A moment we had. That’s all."},
+            {type:"dialogue", who:"Mara", text:"That’s grown-up grief."},
+            {type:"choices", options: () => ([
+              {label:"Next.", next:"c7s3"}
+            ])}
+          ]
+        },
+        {
+          id:"c7s2_miss",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I admit I miss them."},
+            {type:"verse", text:"The sentence doesn’t pull me back. It just tells the truth."},
+            {type:"dialogue", who:"Nila", text:"Missing is not a contract."},
+            {type:"choices", options: () => ([
+              {label:"Next.", next:"c7s3"}
+            ])}
+          ]
+        },
+        {
+          id:"c7s2_refuse",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I refuse the memory like it’s a trap."},
+            {type:"verse", text:"But it stays anyway, soft and stubborn."},
+            {type:"dialogue", who:"Mara", text:"You don’t have to punish yourself to prove you learned."},
+            {type:"choices", options: () => ([
+              {label:"Next.", next:"c7s3"}
+            ])}
+          ]
+        },
+        {
+          id:"c7s3",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"Outside, the street looks briefly normal."},
+            {type:"verse", text:"Then the rain returns like it remembered its job."},
+            {type:"dialogue", who:"Jonah", text:"When it hits again, what do you do?"},
+            {type:"choices", options: () => ([
+              {label:"Breathe. Stay.", next:"c7s4", effect:{breath:+1}},
+              {label:"Run. Distract.", next:"c7s4", effect:{run:+1}},
+              {label:"Ask for help.", next:"c7s4", effect:{trust:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c7s4",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I don’t know which answer is mine yet."},
+            {type:"verse", text:"But I’m answering now. That’s new."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 7.", next:"__restart"}
+            ])}
+          ]
+        }
+      ]
+    },
+
+    c8: {
+      id:"c8",
+      label:"Chapter 8 · I Set It on Fire",
+      screens: [
+        {
+          id:"c8s1",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"Nila pulls a crumpled receipt pad from her bag."},
+            {type:"verse", text:"A pen. Cheap paper."},
+            {type:"dialogue", who:"Nila", text:"Write what you keep rewriting in your head."},
+            {type:"dialogue", who:"Mara", text:"Then we don’t send it."},
+            {type:"dialogue", who:"Jonah", text:"We just stop carrying it."},
+            {type:"choices", options: () => ([
+              {label:"Write a message you never sent.", next:"c8s2_write", effect:{breath:+1}},
+              {label:"Refuse. Too raw.", next:"c8s2_refuse"},
+              {label:"Write one sentence only.", next:"c8s2_one", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c8s2_write",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"My hand shakes but it moves."},
+            {type:"verse", text:"I write the parts I edited out to sound reasonable."},
+            {type:"verse", text:"I write the line I never let myself say: I let it crash. I let it burn."},
+            {type:"dialogue", who:"Mara", text:"Read it? Or tear it?"}
+            ,
+            {type:"choices", options: () => ([
+              {label:"Read it out loud.", next:"c8s3_read", effect:{trust:+1}},
+              {label:"Tear it up.", next:"c8s3_tear", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c8s2_one",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I write one sentence: I’m not hiding anymore."},
+            {type:"verse", text:"It looks too simple for what it cost."},
+            {type:"dialogue", who:"Jonah", text:"That’s enough."},
+            {type:"choices", options: () => ([
+              {label:"Tear it up.", next:"c8s3_tear", effect:{breath:+1}},
+              {label:"Keep it in your pocket.", next:"c8s3_keep"}
+            ])}
+          ]
+        },
+        {
+          id:"c8s2_refuse",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I can’t."},
+            {type:"verse", text:"My throat closes like a door that learned its job too well."},
+            {type:"dialogue", who:"Nila", text:"Okay. Then we do it symbolically."},
+            {type:"choices", options: () => ([
+              {label:"Crush the paper anyway.", next:"c8s3_tear", effect:{breath:+1}},
+              {label:"Hold the pen. That’s enough.", next:"c8s3_keep"}
+            ])}
+          ]
+        },
+        {
+          id:"c8s3_read",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I read it out loud."},
+            {type:"verse", text:"The words sound harsher in air, and that’s the point."},
+            {type:"dialogue", who:"Mara", text:"You survived saying it."},
+            {type:"choices", options: () => ([
+              {label:"Let it go.", next:"c8s4"},
+            ])}
+          ]
+        },
+        {
+          id:"c8s3_tear",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I tear the paper into pieces."},
+            {type:"verse", text:"Not dramatic. Just final."},
+            {type:"verse", text:"I let the ashes take their turn — even if there are no ashes, just scraps."},
+            {type:"choices", options: () => ([
+              {label:"Next.", next:"c8s4", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c8s3_keep",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I fold the paper and keep it."},
+            {type:"verse", text:"Not to return to it — to remember I was brave once."},
+            {type:"choices", options: () => ([
+              {label:"Next.", next:"c8s4"}
+            ])}
+          ]
+        },
+        {
+          id:"c8s4",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"Outside, the rain hits harder again."},
+            {type:"verse", text:"Inside, something loosens anyway."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 8.", next:"__restart"}
+            ])}
+          ]
+        }
+      ]
+    },
+
+    c9: {
+      id:"c9",
+      label:"Chapter 9 · I Drifted into the Fog",
+      screens: [
+        {
+          id:"c9s1",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"Close to midnight, the rain turns into mist."},
+            {type:"verse", text:"Streetlights glow like bruised halos."},
+            {type:"verse", text:"We step outside and the air feels thick, like fog learning the shape of my face."},
+            {type:"dialogue", who:"Jonah", text:"You okay to walk?"},
+            {type:"choices", options: () => ([
+              {label:"Walk with them.", next:"c9s2_walk", effect:{trust:+1}},
+              {label:"Walk alone for one block.", next:"c9s2_alone", effect:{breath:+1}},
+              {label:"Freeze. Too much.", next:"c9s2_freeze", effect:{run:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c9s2_walk",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"We walk together."},
+            {type:"verse", text:"I drift into the fog, but the sound of their footsteps keeps me from getting lost."},
+            {type:"dialogue", who:"Mara", text:"You don’t have to be strong tonight."},
+            {type:"choices", options: () => ([
+              {label:"Admit you’re tired.", next:"c9s3"},
+              {label:"Stay quiet.", next:"c9s3", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c9s2_alone",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I walk alone for one block."},
+            {type:"verse", text:"The fog swallows the edges of everything."},
+            {type:"verse", text:"I can feel the old impulse — to vanish."},
+            {type:"dialogue", who:"Nila", text:"We’re right behind you."},
+            {type:"choices", options: () => ([
+              {label:"Slow down and let them catch up.", next:"c9s3", effect:{trust:+1}},
+              {label:"Keep walking. Just breathe.", next:"c9s3", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c9s2_freeze",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"My body freezes like it’s waiting for impact."},
+            {type:"dialogue", who:"Jonah", text:"Hey. Look at the ground."},
+            {type:"dialogue", who:"Jonah", text:"Find one thing you can describe."},
+            {type:"choices", options: () => ([
+              {label:"Describe the pavement.", next:"c9s3", effect:{breath:+1}},
+              {label:"Describe the rain on your sleeve.", next:"c9s3", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c9s3",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"In the fog, the city looks softer. Less demanding."},
+            {type:"verse", text:"Even when I’m torn, I know I’ll be reborn."},
+            {type:"dialogue", who:"Mara", text:"Not tonight. But yes. Eventually."},
+            {type:"choices", options: () => ([
+              {label:"Next chapter.", next:"__menu"},
+              {label:"Restart Chapter 9.", next:"__restart"}
+            ])}
+          ]
+        }
+      ]
+    },
+
+    c10: {
+      id:"c10",
+      label:"Chapter 10 · After a While",
+      screens: [
+        {
+          id:"c10s1",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"After a while, the storm becomes background."},
+            {type:"verse", text:"Not because it ended — because I stopped making it the whole story."},
+            {type:"verse", text:"We stand near the corner where the city finally comes back into focus."},
+            {type:"dialogue", who:"Nila", text:"So what now?"},
+            {type:"dialogue", who:"Nila", text:"Not big. Just next."},
+            {type:"choices", options: () => ([
+              {label:"Go home and sleep.", next:"c10s2_sleep", effect:{breath:+1}},
+              {label:"Send one message you actually mean.", next:"c10s2_message", effect:{trust:+1}},
+              {label:"Walk until your head clears.", next:"c10s2_walk", effect:{breath:+1}}
+            ])}
+          ]
+        },
+        {
+          id:"c10s2_sleep",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I choose sleep."},
+            {type:"verse", text:"Not avoidance — recovery."},
+            {type:"dialogue", who:"Jonah", text:"Good. Text us when you’re in."},
+            {type:"choices", options: () => ([
+              {label:"Final scene.", next:"c10s3"}
+            ])}
+          ]
+        },
+        {
+          id:"c10s2_message",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I open my contacts and pick a safe name."},
+            {type:"verse", text:"Not the one that keeps buzzing."},
+            {type:"verse", text:"I send a simple truth: I’m home soon. Thank you for staying."},
+            {type:"dialogue", who:"Mara", text:"That’s the kind of message that changes a life."},
+            {type:"choices", options: () => ([
+              {label:"Final scene.", next:"c10s3"}
+            ])}
+          ]
+        },
+        {
+          id:"c10s2_walk",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"We walk."},
+            {type:"verse", text:"The rain keeps falling, but it doesn’t feel like it’s aimed at me anymore."},
+            {type:"dialogue", who:"Nila", text:"This is the part nobody posts."},
+            {type:"dialogue", who:"Nila", text:"The boring part where you keep living."},
+            {type:"choices", options: () => ([
+              {label:"Final scene.", next:"c10s3"}
+            ])}
+          ]
+        },
+        {
+          id:"c10s3",
+          init: () => { setChoices(null); },
+          sequence: [
+            {type:"verse", text:"I don’t run like I used to."},
+            {type:"verse", text:"I breathe. I pass it on."},
+            {type:"verse", text:"My heart stays open — not to everyone, not to everything — just open enough."},
+            {type:"verse", text:"In the storm, I’m reborn. Not all at once. After a while."},
+            {type:"choices", options: () => ([
+              {label:"Back to chapters.", next:"__menu"},
+              {label:"Restart the whole story.", next:"__restart"}
+            ])}
+          ]
+        }
+      ]
+    }
+
+  };
+
+  // ---------- State
+  const state = {
+    playerName: "",
+    seed: 0,
+    trait: "Direct",
+    image: "bus window rain",
+    chapterId: "c1",
+    screenId: "c1s1",
+
+    breath: 0,
+    trust: 0,
+    run: 0,
+
+    // visuals
+    rainIntensity: 1.0,
+    rainIntensityTarget: 1.0,
+    cameraOpen: 0.0,
+    cameraOpenTarget: 0.0,
+    fog: 0.0,
+    fogTarget: 0.0,
+
+    // helpers
+    playerLine: (text) => {
+      // Name-seed trait lightly changes delivery. No plot change.
+      const base = String(text);
+      if(state.trait === "Quiet") return base;
+      if(state.trait === "Direct") return base;
+      // Analytical: add a small observational clause sometimes.
+      if(Math.random() < 0.35) return base;
+      return base + "";
+    }
+  };
+
+  // ---------- UI: verses
+  const verseNodes = [];
+  function pushVerse(text){
+    const node = document.createElement('div');
+    node.className = 'verse';
+    node.textContent = text;
+    verseWrap.appendChild(node);
+    requestAnimationFrame(() => node.classList.add('show'));
+    verseNodes.push(node);
+
+    // Keep only last 2 visible-ish
+    for(let i=0;i<verseNodes.length;i++){
+      const n = verseNodes[i];
+      const age = verseNodes.length - 1 - i;
+      if(age === 0){ n.classList.remove('faded'); }
+      else if(age === 1){ n.classList.add('faded'); }
+      else {
+        n.classList.remove('show');
+        setTimeout(() => { n.remove(); }, 350);
+      }
+    }
+    // Trim nodes list
+    while(verseNodes.length > 2) verseNodes.shift();
+  }
+
+  function clearVerses(){
+    verseWrap.innerHTML = '';
+    verseNodes.length = 0;
+  }
+
+  // ---------- UI: dialogue
+  let bubbleTimer = null;
+  function showBubble(who, text){
+    if(bubbleTimer) clearTimeout(bubbleTimer);
+    speakerEl.textContent = who;
+    lineEl.textContent = text;
+    bubble.classList.add('show');
+    bubbleTimer = setTimeout(() => {
+      // keep visible until next event; we fade when new verse/dialogue arrives
+    }, 50);
+  }
+
+  function hideBubble(){
+    bubble.classList.remove('show');
+    speakerEl.textContent = '';
+    lineEl.textContent = '';
+  }
+
+  // ---------- UI: choices
+  let awaitingChoice = false;
+  function setChoices(options){
+    choicesEl.innerHTML = '';
+    awaitingChoice = !!options;
+
+    if(!options){
+      choicesEl.style.display = 'none';
+      // keep dialogue comfortably above where choices would be
+      rootStyle.setProperty('--choiceH', '120px');
+      return;
+    }
+
+    choicesEl.style.display = 'flex';
+    options.forEach((opt) => {
+      const btn = document.createElement('button');
+      btn.className = 'choiceBtn';
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => choose(opt));
+      choicesEl.appendChild(btn);
+    });
+
+    // Measure the full choice layer so dialogue never overlaps it
+    requestAnimationFrame(() => {
+      const h = choiceLayerEl?.getBoundingClientRect?.().height || 120;
+      rootStyle.setProperty('--choiceH', Math.max(120, Math.ceil(h)) + 'px');
+    });
+  }
+
+  function choose(opt){
+    if(opt.effect){
+      state.breath += opt.effect.breath || 0;
+      state.trust += opt.effect.trust || 0;
+      state.run += opt.effect.run || 0;
+    }
+
+    // subtle sound response
+    if(audioOn){
+      if(opt.effect?.breath) fadeRainTo(0.10, 250);
+      if(opt.effect?.run)   fadeRainTo(0.14, 250);
+      if(opt.effect?.trust) fadeRainTo(0.12, 250);
+    }
+
+    if(opt.next === '__menu'){
+      openMenu();
+      return;
+    }
+    if(opt.next === '__restart'){
+      restart();
+      return;
+    }
+    if(opt.nextChapter){
+      loadChapter(opt.nextChapter);
+      return;
+    }
+    if(opt.next){
+      loadScreen(state.chapterId, opt.next);
+      return;
+    }
+  }
+
+  // ---------- Engine
+  let currentSequence = [];
+  let seqIndex = 0;
+  let stepEndsAt = 0;
+  let paused = false;
+
+  function getChapter(id){
+    return Chapters[id] || Chapters.c1;
+  }
+
+  function findScreen(ch, sid){
+    return ch.screens.find(s => s.id === sid) || ch.screens[0];
+  }
+
+  function loadChapter(chId){
+    const ch = getChapter(chId);
+    state.chapterId = ch.id;
+    const first = ch.screens[0];
+    loadScreen(ch.id, first.id);
+  }
+
+  function loadScreen(chId, screenId){
+    const ch = getChapter(chId);
+    const scr = findScreen(ch, screenId);
+
+    state.chapterId = ch.id;
+    state.screenId = scr.id;
+    chapterLabel.textContent = ch.label;
+
+    clearVerses();
+    hideBubble();
+    setChoices(null);
+
+    currentSequence = scr.sequence.slice();
+    seqIndex = 0;
+    stepEndsAt = 0;
+
+    // init hook
+    scr.init?.({state});
+
+    // Run first step immediately
+    runNextStep(performance.now());
+  }
+
+  function runNextStep(now){
+    if(paused) return;
+    if(awaitingChoice) return;
+
+    const step = currentSequence[seqIndex];
+    if(!step){
+      // No more steps: remain idle
+      return;
+    }
+
+    // Fade bubble between steps lightly
+    if(step.type === 'verse'){
+      // keep bubble present; do nothing
+    } else if(step.type === 'dialogue'){
+      // keep
+    } else {
+      // for events/choices, soften bubble
+    }
+
+    if(step.type === 'verse'){
+      pushVerse(step.text);
+      stepEndsAt = now + readTimeMs(step.text);
+      seqIndex++;
+      return;
+    }
+
+    if(step.type === 'dialogue'){
+      const who = step.who;
+      const t = (typeof step.text === 'function') ? step.text({state}) : step.text;
+      showBubble(who, t);
+      stepEndsAt = now + clamp(1400 + String(t).length * 46, 1700, 4800);
+      seqIndex++;
+      return;
+    }
+
+    if(step.type === 'event'){
+      step.fn?.();
+      stepEndsAt = now + 350;
+      seqIndex++;
+      return;
+    }
+
+    if(step.type === 'choice'){
+      setChoices(step.options || []);
+      stepEndsAt = Infinity;
+      seqIndex++;
+      return;
+    }
+  }
+
+  // Input advance
+  function advance(){
+    if(startModal.style.display !== 'none') return;
+    if(menuModal.style.display !== 'none') return;
+    if(awaitingChoice) return;
+
+    // Skip current hold
+    stepEndsAt = performance.now();
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if(e.code === 'Space'){
+      e.preventDefault();
+      advance();
+    }
+    if(e.key === 'Escape'){
+      if(menuModal.style.display === 'none') openMenu();
+      else closeMenu();
+    }
+  }, {passive:false});
+
+  window.addEventListener('pointerdown', (e) => {
+    // Do not advance if clicking a button
+    const t = e.target;
+    if(t && (t.tagName === 'BUTTON' || t.closest('button'))) return;
+    advance();
+  });
+
+  // ---------- Menu
+  function openMenu(){
+    menuModal.style.display = 'flex';
+    paused = true;
+    document.getElementById('seedInfo').textContent = `Seed: ${state.playerName || '—'} · ${state.trait} · ${state.image}`;
+  }
+  function closeMenu(){
+    menuModal.style.display = 'none';
+    paused = false;
+    stepEndsAt = performance.now();
+  }
+
+  menuBtn.addEventListener('click', openMenu);
+  resumeBtn.addEventListener('click', closeMenu);
+  restartBtn.addEventListener('click', () => { restart(); closeMenu(); });
+  muteBtn.addEventListener('click', () => {
+    if(audioOn) stopRainSound();
+    else startRainSound();
+  });
+
+  menuModal.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    const jump = btn.getAttribute('data-jump');
+    if(jump){
+      closeMenu();
+      loadChapter(jump);
+    }
+  });
+
+  // ---------- Start
+  function updateSeedPills(){
+    const name = (nameInput.value || '').trim();
+    const {trait, img} = traitFromName(name || 'A');
+    seedPills.innerHTML = '';
+    const p1 = document.createElement('div'); p1.className='pill'; p1.textContent = `Tone: ${trait}`;
+    const p2 = document.createElement('div'); p2.className='pill'; p2.textContent = `Image: ${img}`;
+    seedPills.appendChild(p1);
+    seedPills.appendChild(p2);
+  }
+  nameInput.addEventListener('input', updateSeedPills);
+  updateSeedPills();
+
+  function begin(){
+    const nm = (nameInput.value || '').trim() || 'A';
+    state.playerName = nm;
+    state.seed = hashString(nm);
+    const t = traitFromName(nm);
+    state.trait = t.trait;
+    state.image = t.img;
+
+    // reset “emotional shape”
+    state.breath = 0;
+    state.trust = 0;
+    state.run = 0;
+
+    startModal.style.display = 'none';
+
+    // try to start audio (allowed only after user gesture)
+    startRainSound();
+
+    loadChapter('c1');
+  }
+
+  startBtn.addEventListener('click', begin);
+  nameInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') begin();
+  });
+
+  function restart(){
+    startModal.style.display = 'flex';
+    menuModal.style.display = 'none';
+    paused = false;
+    clearVerses();
+    hideBubble();
+    setChoices(null);
+    resetCharacters();
+  }
+
+  // ---------- Drawing
+  function drawCityBackdrop(ctx, t){
+    // Deep background gradient
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#060912');
+    g.addColorStop(0.55, '#05070b');
+    g.addColorStop(1, '#030408');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+
+    // Distant glow / moon hint
+    const mx = W*0.72;
+    const my = H*0.20;
+    ctx.save();
+    ctx.globalAlpha = 0.20;
+    const rg = ctx.createRadialGradient(mx,my, 0, mx,my, Math.max(W,H)*0.55);
+    rg.addColorStop(0, 'rgba(230,238,255,.18)');
+    rg.addColorStop(0.35, 'rgba(230,238,255,.08)');
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rg;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+
+    // Far skyline silhouettes
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#0a0e18';
+    const base = H*0.62;
+    let x=0;
+    while(x < W){
+      const w = 22 + Math.random()*48;
+      const h = 40 + Math.random()*140;
+      ctx.fillRect(x, base - h, w, h);
+      x += w + (6 + Math.random()*18);
+    }
+    ctx.restore();
+
+    // Wet ground sheen
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    const gg = ctx.createLinearGradient(0, H*0.66, 0, H);
+    gg.addColorStop(0, 'rgba(255,255,255,0)');
+    gg.addColorStop(0.5, 'rgba(255,255,255,.05)');
+    gg.addColorStop(1, 'rgba(255,255,255,.03)');
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, H*0.66, W, H*0.34);
+    ctx.restore();
+
+    // Fog layer (for later chapters)
+    if(state.fog > 0.001){
+      ctx.save();
+      ctx.globalAlpha = 0.15 * state.fog;
+      const fg = ctx.createLinearGradient(0, H*0.42, 0, H);
+      fg.addColorStop(0, 'rgba(230,238,255,0)');
+      fg.addColorStop(0.6, 'rgba(230,238,255,.16)');
+      fg.addColorStop(1, 'rgba(230,238,255,.10)');
+      ctx.fillStyle = fg;
+      ctx.fillRect(0,0,W,H);
+      ctx.restore();
+    }
+  }
+
+  function drawRain(ctx, arr, intensity, near, time){
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for(const d of arr){
+      // wind angle
+      const dx = d.l * rainAngle;
+      const dy = d.l;
+      const x1 = d.x;
+      const y1 = d.y;
+      const x2 = x1 + dx;
+      const y2 = y1 + dy;
+
+      ctx.globalAlpha = d.a * intensity;
+      ctx.lineWidth = d.w;
+      ctx.strokeStyle = 'rgba(230,238,255,1)';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // update
+      d.x += rainAngle * d.v * (1/60) * intensity;
+      d.y += d.v * (1/60) * intensity;
+      if(d.y > H + 40){ d.y = -40 - Math.random()*120; d.x = Math.random()*W; }
+      if(d.x < -60) d.x = W + 60;
+      if(d.x > W + 60) d.x = -60;
+    }
+    ctx.restore();
+  }
+
+  function drawCharacter(ctx, c, t){
+    if(!c.present) return;
+    // position
+    const px = c.x * W;
+    const py = c.y * H;
+
+    // idle
+    const bob = Math.sin((t*0.002) + (c.side*1.7)) * 2.2;
+    const sway = Math.sin((t*0.0017) + (c.side*2.1)) * 2.0;
+
+    // silhouette style: soft, realistic, minimal detail
+    ctx.save();
+    ctx.translate(px + sway, py + bob);
+
+    const scale = 1.0;
+    ctx.scale(scale, scale);
+
+    // shadow
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+    ctx.beginPath();
+    ctx.ellipse(0, 42, 28, 10, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // body
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(230,238,255,.20)';
+    ctx.strokeStyle = 'rgba(230,238,255,.28)';
+    ctx.lineWidth = 1;
+
+    // coat
+    roundRect(ctx, -18, -10, 36, 52, 12);
+    ctx.fill();
+
+    // head
+    ctx.globalAlpha = 0.78;
+    ctx.beginPath();
+    ctx.ellipse(0, -22, 11, 12, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // hood/shoulder hint
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.ellipse(0, -10, 22, 14, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // legs
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = 'rgba(230,238,255,.16)';
+    roundRect(ctx, -14, 38, 10, 18, 6);
+    ctx.fill();
+    roundRect(ctx, 4, 38, 10, 18, 6);
+    ctx.fill();
+
+    // name tag (very subtle)
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = 'rgba(230,238,255,1)';
+    ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(c.name, 0, -54);
+
+    ctx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
+  }
+
+  // ---------- Main loop
+  let last = performance.now();
+  function tick(now){
+    const dt = now - last;
+    last = now;
+
+    // smooth targets
+    state.rainIntensity = lerp(state.rainIntensity, state.rainIntensityTarget, 0.02);
+    state.cameraOpen = lerp(state.cameraOpen, state.cameraOpenTarget, 0.02);
+    state.fog = lerp(state.fog, state.fogTarget, 0.02);
+
+    // wind drift
+    rainAngle = lerp(rainAngle, -0.36 + Math.sin(now*0.00012)*0.08, 0.01);
+
+    // draw bg
+    drawCityBackdrop(bgc, now);
+
+    // rain
+    const intensity = state.rainIntensity;
+    drawRain(bgc, rainFar, 0.85*intensity, false, now);
+
+    // fg layer
+    fgc.clearRect(0,0,W,H);
+
+    // enter animations
+    tweenEnter(Characters.mara, dt);
+    tweenEnter(Characters.jonah, dt);
+    tweenEnter(Characters.nila, dt);
+
+    // characters
+    drawCharacter(fgc, Characters.player, now);
+    drawCharacter(fgc, Characters.mara, now);
+    drawCharacter(fgc, Characters.jonah, now);
+    drawCharacter(fgc, Characters.nila, now);
+
+    // near rain
+    drawRain(fgc, rainNear, 1.05*intensity, true, now);
+
+    // subtle vignette
+    fgc.save();
+    fgc.globalAlpha = 0.32;
+    const vg = fgc.createRadialGradient(W/2, H*0.45, 0, W/2, H*0.45, Math.max(W,H)*0.70);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(0.72, 'rgba(0,0,0,.25)');
+    vg.addColorStop(1, 'rgba(0,0,0,.58)');
+    fgc.fillStyle = vg;
+    fgc.fillRect(0,0,W,H);
+    fgc.restore();
+
+    // advance story
+    if(!paused && startModal.style.display === 'none' && menuModal.style.display === 'none'){
+      if(!awaitingChoice && now >= stepEndsAt){
+        runNextStep(now);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // ---------- Wire player name into character label (once started)
+  function applyPlayerName(){
+    Characters.player.name = state.playerName || 'You';
+  }
+
+  // Keep pills and seed info aligned
+  function updateSeedInfo(){
+    const nm = (nameInput.value || '').trim() || 'A';
+    const t = traitFromName(nm);
+    seedInfo.textContent = `Seed: ${nm} · ${t.trait} · ${t.img}`;
+  }
+
+  // Start button gesture also updates player name
+  startBtn.addEventListener('click', () => {
+    Characters.player.name = (nameInput.value || '').trim() || 'You';
+    applyPlayerName();
+  });
+
+})();
+</script>
+</body>
+</html>
